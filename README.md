@@ -1,5 +1,5 @@
 # CLI DayTr
-Python-based Kanban board CLI for managing daily tasks using YAML files.
+Python-based Kanban board CLI for managing daily tasks using .YAML and .dat files.
 
 
 ## Introduction
