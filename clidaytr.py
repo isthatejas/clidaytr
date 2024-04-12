@@ -1,9 +1,7 @@
 import os
 import sys
-from textwrap import wrap
 import collections
 import datetime
-from rich import print
 from rich.console import Console
 from rich.table import Table
 import click
@@ -29,22 +27,24 @@ class Config(object):
 pass_config = click.make_pass_decorator(Config, ensure=True)
 
 class AliasedGroup(DefaultGroup):
-    #This subclass of a group supports looking up aliases in a config
+    # to handle aliases defined in a configuration file
+
     def get_command(self, ctx, cmd_name):
-        #bulit-in commands as normal
+        # bulitin commands as normal
         rv = click.Group.get_command(self, ctx, cmd_name)
         if rv is not None:
             return rv
-        #find the config object and ensure it's there.  This
-        #will create the config object is missing.
+
+        # find the config object and ensure it's there.
+        # will create the config object if missing.
         cfg = ctx.ensure_object(Config)
-        
-        #lookup an explicit command aliases in the config
+
+        # lookup an explicit command aliase in the config
         if cmd_name in cfg.aliases:
             actual_cmd = cfg.aliases[cmd_name]
             return click.Group.get_command(self, ctx, actual_cmd)
-            
-        #allow automatic abbreviation of the command.
+        
+        # allow automatic abbreviation of the command.
         matches = [x for x in self.list_commands(ctx)
                    if x.lower().startswith(cmd_name.lower())]
         if not matches:
@@ -54,7 +54,6 @@ class AliasedGroup(DefaultGroup):
         ctx.fail('Too many matches: %s' % ', '.join(sorted(matches)))
 
 def read_config(ctx, param, value):
-    #This means that the config is loaded even if the group itself never executes so our aliases stay always available.
     cfg = ctx.ensure_object(Config)
     if value is None:
         value = os.path.join(os.path.dirname(__file__), 'aliases.ini')
@@ -62,13 +61,13 @@ def read_config(ctx, param, value):
     return value
 
 @click.version_option(VERSION)
-@click.command(cls=AliasedGroup, default='show', default_if_no_args=True)
+@click.command(cls=AliasedGroup, default='show', default_if_no_args=False)
 def clidaytr():
-    """clikan: CLI personal kanban """
+    """CLI DayTr : Your CLI Personal Kanban"""
 
 @clidaytr.command()
 def configure():
-    #place default config file in CLIDAYTR_HOME or HOME
+    # Place default config file in CLIDAYTR_HOME or HOME
     home = get_clidaytr_home()
     data_path = os.path.join(home, ".clidaytr.dat")
     config_path = os.path.join(home, ".clidaytr.yaml")
@@ -81,7 +80,7 @@ def configure():
     click.echo("Creating %s" % config_path)
 
 def read_data(config):
-    #Read the existing data from the config datasource
+    #Read the existing data from the config datafile
     try:
         with open(config["clidaytr_data"], 'r') as stream:
             try:
@@ -97,6 +96,7 @@ def read_data(config):
             return yaml.safe_load(stream)
 
 def write_data(config, data):
+    #Write the data to the config datafile
     with open(config["clidaytr_data"], 'w') as outfile:
         yaml.dump(data, outfile, default_flow_style=False)
 
@@ -107,7 +107,7 @@ def get_clidaytr_home():
     return home
 
 def read_config_yaml():
-    # Read from ~/.clidaytr.yaml
+    #Read the app config from ~/.clidaytr.yaml
     try:
         home = get_clidaytr_home()
         with open(home + "/.clidaytr.yaml", 'r') as stream:
@@ -157,7 +157,7 @@ def add(tasks, priority, name):
     dd = read_data(config)
 
     if ('limits' in config and 'taskname' in config['limits']):
-        taskname_length = config['limits']['taskname']
+        taskname_length = config['limits']['taskname'] #get taskname length from config YAML
     else:
         taskname_length = 40
 
@@ -290,9 +290,9 @@ def show(name):
         dones = dones[0:10]
 
     sorted_data = sorted(dd['data'].items(), key=lambda item: item[1][4])
-    filtered_data = [item for item in sorted_data if item[1][5] == name]
+    filtered_data = [item for item in sorted_data if item[1][5] == name]  # Assuming 6th element is at index 5
 
-    #filtered data
+    #task lists based on filtered data
     filtered_todos = []
     filtered_inprogs = []
     filtered_backlogs = []
@@ -306,7 +306,7 @@ def show(name):
             filtered_inprogs.append("[%d] %s" % (key, value[1]))
         else:
             filtered_dones.insert(0, "[%d] %s" % (key, value[1]))
-
+    #formatting task lists separating each task in a new line
     todos = '\n'.join([str(x) for x in filtered_todos])
     backlogs = '\n'.join([str(x) for x in filtered_backlogs])
     inprogs = '\n'.join([str(x) for x in filtered_inprogs])
@@ -319,7 +319,7 @@ def show(name):
         footer=name
     )
     table.add_column('[bold blue]IN-PROGRESS[/bold blue]', no_wrap=True)
-    table.add_column('[bold green]BACKLOG[/bold green]', no_wrap=True, footer="I LOVE GDSC")
+    table.add_column('[bold green]BACKLOG[/bold green]', no_wrap=True, footer="I <3 GDSC")
     table.add_column(
         '[bold magenta]DONE[/bold magenta]',
         no_wrap=True,
@@ -329,6 +329,7 @@ def show(name):
     table.add_row(todos, inprogs, backlogs, dones)
     console.print(table)
 
+# can be used by making repaint = True in the YAML file.
 def display():
     console = Console()
     config = read_config_yaml()
