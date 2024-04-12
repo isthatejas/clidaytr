@@ -14,8 +14,6 @@ import configparser
 VERSION = "0.0.0"
 
 class Config(object):
-    """The config in this example only holds aliases."""
-
     def __init__(self):
         self.path = os.getcwd()
         self.aliases = {}
@@ -31,29 +29,22 @@ class Config(object):
 pass_config = click.make_pass_decorator(Config, ensure=True)
 
 class AliasedGroup(DefaultGroup):
-    """This subclass of a group supports looking up aliases in a config
-    file and with a bit of magic.
-    """
-
+    #This subclass of a group supports looking up aliases in a config
     def get_command(self, ctx, cmd_name):
-        # Step one: bulitin commands as normal
+        #bulit-in commands as normal
         rv = click.Group.get_command(self, ctx, cmd_name)
         if rv is not None:
             return rv
-
-        # Step two: find the config object and ensure it's there.  This
-        # will create the config object is missing.
+        #find the config object and ensure it's there.  This
+        #will create the config object is missing.
         cfg = ctx.ensure_object(Config)
-
-        # Step three: lookup an explicit command aliase in the config
+        
+        #lookup an explicit command aliases in the config
         if cmd_name in cfg.aliases:
             actual_cmd = cfg.aliases[cmd_name]
             return click.Group.get_command(self, ctx, actual_cmd)
-
-        # Alternative option: if we did not find an explicit alias we
-        # allow automatic abbreviation of the command.  "status" for
-        # instance will match "st".  We only allow that however if
-        # there is only one command.
+            
+        #allow automatic abbreviation of the command.
         matches = [x for x in self.list_commands(ctx)
                    if x.lower().startswith(cmd_name.lower())]
         if not matches:
@@ -63,11 +54,7 @@ class AliasedGroup(DefaultGroup):
         ctx.fail('Too many matches: %s' % ', '.join(sorted(matches)))
 
 def read_config(ctx, param, value):
-    """Callback that is used whenever --config is passed.  We use this to
-    always load the correct config.  This means that the config is loaded
-    even if the group itself never executes so our aliases stay always
-    available.
-    """
+    #This means that the config is loaded even if the group itself never executes so our aliases stay always available.
     cfg = ctx.ensure_object(Config)
     if value is None:
         value = os.path.join(os.path.dirname(__file__), 'aliases.ini')
@@ -81,7 +68,7 @@ def clidaytr():
 
 @clidaytr.command()
 def configure():
-    """Place default config file in CLIDAYTR_HOME or HOME"""
+    #place default config file in CLIDAYTR_HOME or HOME
     home = get_clidaytr_home()
     data_path = os.path.join(home, ".clidaytr.dat")
     config_path = os.path.join(home, ".clidaytr.yaml")
@@ -94,7 +81,7 @@ def configure():
     click.echo("Creating %s" % config_path)
 
 def read_data(config):
-    """Read the existing data from the config datasource"""
+    #Read the existing data from the config datasource
     try:
         with open(config["clidaytr_data"], 'r') as stream:
             try:
@@ -110,7 +97,6 @@ def read_data(config):
             return yaml.safe_load(stream)
 
 def write_data(config, data):
-    """Write the data to the config datasource"""
     with open(config["clidaytr_data"], 'w') as outfile:
         yaml.dump(data, outfile, default_flow_style=False)
 
@@ -121,7 +107,7 @@ def get_clidaytr_home():
     return home
 
 def read_config_yaml():
-    """Read the app config from ~/.clidaytr.yaml"""
+    # Read from ~/.clidaytr.yaml
     try:
         home = get_clidaytr_home()
         with open(home + "/.clidaytr.yaml", 'r') as stream:
@@ -167,7 +153,6 @@ PRIORITY_MAP = {
 @click.option('--name', '-n', help='Name of the Table', required=True)
 @click.option('--priority', type=click.Choice(['high', 'medium', 'low']), default='medium', help='Priority of the task' )
 def add(tasks, priority, name):
-    """Add a tasks in todo"""
     config = read_config_yaml()
     dd = read_data(config)
 
@@ -202,7 +187,6 @@ def add(tasks, priority, name):
 @clidaytr.command()
 @click.argument('ids', nargs=-1)
 def delete(ids):
-    """Delete task"""
     config = read_config_yaml()
     dd = read_data(config)
 
@@ -227,7 +211,6 @@ def delete(ids):
 @clidaytr.command()
 @click.argument('ids', nargs=-1)
 def promote(ids):
-    """Promote task"""
     config = read_config_yaml()
     dd = read_data(config)
     todos, inprogs, backlogs, dones = split_items(config, dd)
@@ -269,7 +252,6 @@ def promote(ids):
 @clidaytr.command()
 @click.argument('ids', nargs=-1)
 def regress(ids):
-    """Regress task"""
     config = read_config_yaml()
     dd = read_data(config)
 
@@ -284,7 +266,7 @@ def regress(ids):
             dd['data'][int(id)] = ['backlog', item[1], timestamp(), item[3],item[4],item[5]]
         elif item[0] == 'backlog':
             click.echo('Regressing task %s to inprogress.' % id)
-            dd['data'][int(id)] = ['plan', item[1], timestamp(), item[3],item[4],item[5]]
+            dd['data'][int(id)] = ['inprogress', item[1], timestamp(), item[3],item[4],item[5]]
         elif item[0] == 'inprogress':
             click.echo('Regressing task %s to todo.' % id)
             dd['data'][int(id)] = ['todo', item[1], timestamp(), item[3],item[4],item[5]]
@@ -299,7 +281,6 @@ def regress(ids):
 @click.option('--name', '-n', help='Name of the Table', required=True)
 def show(name):
     console = Console()
-    """Show tasks in clidaytracker"""
     config = read_config_yaml()
     dd = read_data(config)
     todos, inprogs, backlogs, dones = split_items(config, dd)
@@ -309,9 +290,9 @@ def show(name):
         dones = dones[0:10]
 
     sorted_data = sorted(dd['data'].items(), key=lambda item: item[1][4])
-    filtered_data = [item for item in sorted_data if item[1][5] == name]  # Assuming 6th element is at index 5
+    filtered_data = [item for item in sorted_data if item[1][5] == name]
 
-    # Prepare task lists based on filtered data
+    #filtered data
     filtered_todos = []
     filtered_inprogs = []
     filtered_backlogs = []
@@ -350,7 +331,6 @@ def show(name):
 
 def display():
     console = Console()
-    """Show tasks in clidaytracker"""
     config = read_config_yaml()
     dd = read_data(config)
     todos, inprogs, backlogs, dones = split_items(config, dd)
